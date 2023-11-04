@@ -7,7 +7,7 @@ Due to changes imposed by firmware 7.0.0, Lockpick homebrew can no longer derive
 Usage
 =
 * It is highly recommended, but not required, to place Minerva on SD from the latest [Hekate](https://github.com/CTCaer/hekate/releases) for best performance, especially while dumping titlekeys - the file and path is `/bootloader/sys/libsys_minerva.bso`
-* Launch Lockpick_RCM.bin using your favorite payload injector or chainloader
+* Launch KofyRCM.bin using your favorite payload injector or chainloader
 * Upon completion, keys will be saved to `/switch/prod.keys` and titlekeys to `/switch/title.keys` on SD
 * This release bundles the Falcon keygen from [Atmosphère-NX](https://github.com/Atmosphere-NX/Atmosphere)
 
