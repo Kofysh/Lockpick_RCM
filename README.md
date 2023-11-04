@@ -36,7 +36,7 @@ Building
 =
 Install [devkitARM](https://devkitpro.org/) and run `make`.
 
-Massive Thanks to CTCaer!
+Massive Thanks to CTCaer !
 =
 This software is heavily based on [Hekate](https://github.com/CTCaer/hekate). Beyond that, CTCaer was exceptionally helpful in the development of this project, lending loads of advice, expertise, and humor.
 
