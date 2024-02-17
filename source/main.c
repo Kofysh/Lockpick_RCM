@@ -101,7 +101,7 @@ int launch_payload(char *path, bool clear_screen)
 		if (f_open(&fp, path, FA_READ))
 		{
 			gfx_con.mute = false;
-			EPRINTFARGS("Payload file is missing!\n(%s)", path);
+			EPRINTFARGS("Payload file is missing !\n(%s)", path);
 
 			goto out;
 		}
@@ -327,8 +327,8 @@ ment_t ment_partials[] = {
 	MDEF_CAPTION("but are included for archival purposes.", colors[3]),
 	MDEF_CHGLINE(),
 	MDEF_CAPTION("Warning: this wipes keyslots!", colors[4]),
-	MDEF_CAPTION("The console must be completely restarted!", colors[4]),
-	MDEF_CAPTION("Modchip must run again to fix the keys!", colors[4]),
+	MDEF_CAPTION("The console must be completely restarted !", colors[4]),
+	MDEF_CAPTION("Modchip must run again to fix the keys !", colors[4]),
 	MDEF_CAPTION("---------------", colors[5]),
 	MDEF_HANDLER("Dump Mariko Partials", dump_mariko_partial_keys, colors[0]),
 	MDEF_END()
