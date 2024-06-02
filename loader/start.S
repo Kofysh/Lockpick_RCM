@@ -28,23 +28,29 @@
 
 .globl _start
 .type _start, %function
+
 _start:
+	// Load the current address into R0 and the expected start address into R1
 	ADR R0, _start
 	LDR R1, =__ipl_start
+	// Compare the current and expected start addresses
 	CMP R0, R1
+	// If they match, jump to the real start of the program
 	BEQ _real_start
 
-	/* If we are not in the right location already, copy a relocator to upper IRAM. */
+	// If not in the correct location, relocate to upper IRAM
 	ADR R2, _reloc_ipl
 	LDR R3, =0x4003FF00
 	MOV R4, #(_real_start - _reloc_ipl)
+
 _copy_loop:
+	// Copy relocator code to upper IRAM
 	LDMIA R2!, {R5}
 	STMIA R3!, {R5}
 	SUBS R4, #4
 	BNE _copy_loop
 
-	/* Use the relocator to copy ourselves into the right place. */
+	// Use the relocator to copy ourselves into the correct place
 	LDR R2, =__ipl_end
 	SUB R2, R2, R1
 	LDR R3, =_real_start
@@ -52,19 +58,24 @@ _copy_loop:
 	BX R4
 
 _reloc_ipl:
+	// Relocation loop
 	LDMIA R0!, {R4-R7}
 	STMIA R1!, {R4-R7}
 	SUBS R2, #0x10
 	BNE _reloc_ipl
-	/* Jump to the relocated entry. */
+	// Jump to the relocated entry
 	BX R3
 
 _real_start:
-	/* Initially, we place our stack in IRAM but will move it to SDRAM later. */
+	// Initialize stack pointer in IRAM
 	LDR SP, =0x40007000
+	// Clear BSS section using memset
 	LDR R0, =__ldr_end
 	BL loader_main
+	// Enter infinite loop
 	B .
+
+	// Padding to align with 32-bit words
 	.word 0
 	.word 0
 	.word 0
