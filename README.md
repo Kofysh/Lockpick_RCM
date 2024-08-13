@@ -1,51 +1,53 @@
-Lockpick RCM
+**Lockpick RCM**
 =
-Lockpick RCM is a bare metal Nintendo Switch payload that derives encryption keys for use in Switch file handling software like hactool, hactoolnet/LibHac, ChoiDujour, etc. without booting Horizon OS.
+Lockpick RCM est un payload bare metal pour Nintendo Switch qui dérive des clés de cryptage pour une utilisation dans des logiciels de gestion de fichiers Switch comme hactool, hactoolnet/LibHac, ChoiDujour, etc., sans démarrer Horizon OS.
 
-Due to changes imposed by firmware 7.0.0, Lockpick homebrew can no longer derive the latest keys. In the boot-time environment however, there is no such limitation.
+En raison des changements imposés par le firmware 7.0.0, le homebrew Lockpick ne peut plus dériver les dernières clés. Cependant, dans l'environnement de démarrage, il n'y a pas de telle limitation.
 
-Usage
+**Utilisation**
 =
-* It is highly recommended, but not required, to place Minerva on SD from the latest [Hekate](https://github.com/CTCaer/hekate/releases) for best performance, especially while dumping titlekeys - the file and path is `/bootloader/sys/libsys_minerva.bso`
-* Launch Lockpick_RCM.bin using your favorite payload injector or chainloader
-* Upon completion, keys will be saved to `/switch/prod.keys` and titlekeys to `/switch/title.keys` on SD
-* This release bundles the Falcon keygen from [Atmosphère-NX](https://github.com/Atmosphere-NX/Atmosphere)
+* Il est fortement recommandé, mais non obligatoire, de placer Minerva sur la SD à partir de la dernière version de [Hekate](https://github.com/CTCaer/hekate/releases) pour obtenir les meilleures performances, en particulier lors de l'extraction des clés de titre - le fichier et le chemin sont `/bootloader/sys/libsys_minerva.bso`
+* Lancez Lockpick_RCM.bin en utilisant votre injecteur de payload ou chargeur de chaîne préféré
+* À la fin, les clés seront enregistrées dans `/switch/prod.keys` et les clés de titre dans `/switch/title.keys` sur la SD
+* Cette version inclut le générateur de clés Falcon de [Atmosphère-NX](https://github.com/Atmosphere-NX/Atmosphere)
 
-Mariko-Specific Keys
+**Clés spécifiques à Mariko**
 =
-Mariko consoles have several unique keys and protected keyslots. To get your SBK or the Mariko specific keys, you will need to use the `/switch/partialaes.keys` file along with a brute forcing tool such as <https://files.sshnuke.net/PartialAesKeyCrack.zip>. The contents of this file are the keyslot number followed by the result of that keyslot encrypting 16 null bytes. With the tool linked above, enter them in sequence for a given keyslot you want the contents of, for example: `PartialAesKeyCrack.exe <num1> <num2> <num3> <num4>` with the `--numthreads=N` where N is the number of threads you can dedicate to the brute force.
+Les consoles Mariko ont plusieurs clés uniques et slots de clés protégés. Pour obtenir votre SBK ou les clés spécifiques à Mariko, vous devrez utiliser le fichier `/switch/partialaes.keys` avec un outil de force brute tel que [PartialAESKeyCrack](https://files.sshnuke.net/PartialAesKeyCrack.zip). Le contenu de ce fichier est le numéro du slot de clé suivi du résultat de ce slot de clé chiffrant 16 octets nuls. Avec l'outil lié ci-dessus, entrez-les en séquence pour un slot de clé donné dont vous voulez les contenus, par exemple : `PartialAesKeyCrack.exe <num1> <num2> <num3> <num4>` avec `--numthreads=N` où N est le nombre de threads que vous pouvez consacrer à la force brute.
 
-The keyslots are as follows, with names recognized by `hactool`:
-* 0-11 - `mariko_aes_class_key_xx` (this is not used by the Switch but is set by the bootrom; hactoolnet recognizes it but it serves no purpose)
-* 12 - `mariko_kek` (not unique - this is used for master key derivation)
-* 13 - `mariko_bek` (not unique - this is used for BCT and package1 decryption)
-* 14 - `secure_boot_key` (console unique - this isn't needed for further key derivation than what Lockpick_RCM does but might be nice to have for your records)
-* 15 - Secure storage key (console unique - this is not used on retail or dev consoles and not recognized by any tools)
+Les slots de clé sont les suivants, avec les noms reconnus par `hactool` :
+* 0-11 - `mariko_aes_class_key_xx` (cela n'est pas utilisé par la Switch mais est défini par le bootrom ; hactoolnet le reconnaît mais cela ne sert à rien)
+* 12 - `mariko_kek` (non unique - utilisé pour la dérivation des clés principales)
+* 13 - `mariko_bek` (non unique - utilisé pour le décryptage BCT et package1)
+* 14 - `secure_boot_key` (unique à la console - ce n'est pas nécessaire pour la dérivation des clés au-delà de ce que fait Lockpick_RCM mais peut être utile pour vos archives)
+* 15 - Clé de stockage sécurisé (unique à la console - non utilisée sur les consoles de détail ou de développement et non reconnue par les outils)
 
-So if you want to brute force the `mariko_kek`, open your `partialaes.keys` and observe the numbers beneath keyslot 12. Here's an example with fake numbers:
+Donc, si vous souhaitez effectuer une force brute sur le `mariko_kek`, ouvrez votre `partialaes.keys` et observez les numéros sous le slot de clé 12. Voici un exemple avec des numéros fictifs :
 ```
 12
 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444
 ```
-Then take those numbers and open a command prompt window at the location of the exe linked above and type:
-`PartialAesKeyCrack.exe 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444` and if you're on a powerful enough multicore system, add ` --numthreads=[whatever number of threads]`, ideally not your system's maximum if it's, for example, an older laptop with a low-end dual core CPU. On a Ryzen 3900x with 24 threads this generates a lot of heat but finishes in about 45 seconds.
+Puis prenez ces numéros et ouvrez une fenêtre de commande à l'emplacement de l'exe lié ci-dessus et tapez :
+`PartialAesKeyCrack.exe 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444` et si vous êtes sur un système multicœur suffisamment puissant, ajoutez ` --numthreads=[nombre de threads]`, idéalement pas le maximum de votre système si c'est, par exemple, un ancien portable avec un CPU double cœur bas de gamme. Sur un Ryzen 3900x avec 24 threads, cela génère beaucoup de chaleur mais se termine en environ 45 secondes.
 
-These keys never change so a brute force need only be conducted once.
+Ces clés ne changent jamais, donc une force brute n'a besoin d'être effectuée qu'une seule fois.
 
-This works due to the security engine immediately flushing writes to keyslots which can be written one 32-bit chunk at a time. See: <https://switchbrew.org/wiki/Switch_System_Flaws#Hardware>
+Cela fonctionne en raison du moteur de sécurité qui vide immédiatement les écritures dans les slots de clé, qui peuvent être écrites un morceau de 32 bits à la fois. Voir : [Switchbrew](https://switchbrew.org/wiki/Switch_System_Flaws#Hardware)
 
-Building
+**Compilation**
 =
-Install [devkitARM](https://devkitpro.org/) and run `make`.
+Installez [devkitARM](https://devkitpro.org/) et exécutez `make`.
 
-Massive Thanks to CTCaer !
+**Un grand merci à CTCaer !**
 =
-This software is heavily based on [Hekate](https://github.com/CTCaer/hekate). Beyond that, CTCaer was exceptionally helpful in the development of this project, lending loads of advice, expertise, and humor.
+Ce logiciel est fortement basé sur [Hekate](https://github.com/CTCaer/hekate). En outre, CTCaer a été exceptionnellement utile dans le développement de ce projet, offrant de nombreux conseils, expertise et humour.
 
-License
+**Licence**
 =
-This project is under the GPLv2 license. The Save processing module is adapted from [hactool](https://github.com/SciresM/hactool) code under ISC.
+Ce projet est sous la licence GPLv2. Le module de traitement des sauvegardes est adapté du code de [hactool](https://github.com/SciresM/hactool) sous ISC.
 
-Unnoficial Repo
+**Dépôt non officiel**
 =
-This repository is just a clone of [shchmue](https://github.com/shchmue)'s DMCA'd Lockpick_RCM repository, the changes made to this repository use the source code found in [ReSwitched's discord server](https://reswitched.github.io/discord/)
+Ce dépôt est simplement un clone du dépôt DMCA'd Lockpick_RCM de [shchmue](https://github.com/shchmue), les modifications apportées à ce dépôt utilisent le code source trouvé sur [le serveur Discord de ReSwitched](https://reswitched.github.io/discord/)
+
+---
