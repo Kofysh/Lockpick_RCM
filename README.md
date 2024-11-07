@@ -1,53 +1,75 @@
-Lockpick_RCM
-=
-Lockpick_RCM is a bare metal Nintendo Switch payload that derives encryption keys for use in Switch file handling software like hactool, hactoolnet/LibHac, ChoiDujour, etc. without booting Horizon OS.
 
-Due to changes imposed by firmware 7.0.0, Lockpick homebrew can no longer derive the latest keys. In the boot-time environment however, there is no such limitation.
+# 🔓 Lockpick_RCM
 
-Usage
-=
-* It is highly recommended, but not required, to place Minerva on SD from the latest [Hekate](https://github.com/CTCaer/hekate/releases) for best performance, especially while dumping titlekeys - the file and path is `/bootloader/sys/libsys_minerva.bso`
-* Launch Lockpick_RCM.bin using your favorite payload injector or chainloader
-* Upon completion, keys will be saved to `/switch/prod.keys` and titlekeys to `/switch/title.keys` on SD
-* This release bundles the Falcon keygen from [Atmosphère-NX](https://github.com/Atmosphere-NX/Atmosphere)
+Lockpick_RCM is a bare-metal Nintendo Switch payload that extracts encryption keys for use in file handling software like **hactool**, **hactoolnet/LibHac**, **ChoiDujour**, etc., all without booting into Horizon OS. 🚀
 
-Mariko-Specific Keys
-=
-Mariko consoles have several unique keys and protected keyslots. To get your SBK or the Mariko specific keys, you will need to use the `/switch/partialaes.keys` file along with a brute forcing tool such as <https://files.sshnuke.net/PartialAesKeyCrack.zip>. The contents of this file are the keyslot number followed by the result of that keyslot encrypting 16 null bytes. With the tool linked above, enter them in sequence for a given keyslot you want the contents of, for example: `PartialAesKeyCrack.exe <num1> <num2> <num3> <num4>` with the `--numthreads=N` where N is the number of threads you can dedicate to the brute force.
+> ⚠️ **Note:** Due to changes in firmware 7.0.0 and beyond, the Lockpick homebrew can no longer derive the latest keys. However, this limitation doesn't apply in the boot-time environment, allowing Lockpick_RCM to function properly.
 
-The keyslots are as follows, with names recognized by `hactool`:
-* 0-11 - `mariko_aes_class_key_xx` (this is not used by the Switch but is set by the bootrom; hactoolnet recognizes it but it serves no purpose)
-* 12 - `mariko_kek` (not unique - this is used for master key derivation)
-* 13 - `mariko_bek` (not unique - this is used for BCT and package1 decryption)
-* 14 - `secure_boot_key` (console unique - this isn't needed for further key derivation than what Lockpick_RCM does but might be nice to have for your records)
-* 15 - Secure storage key (console unique - this is not used on retail or dev consoles and not recognized by any tools)
+## 🚀 Usage
 
-So if you want to brute force the `mariko_kek`, open your `partialaes.keys` and observe the numbers beneath keyslot 12. Here's an example with fake numbers:
+1. 🗄️ **Recommended** : Place **Minerva** on your SD card for optimal performance, especially when dumping titlekeys. You can get it from the latest [Hekate release](https://github.com/CTCaer/hekate/releases). Place the file at :
+   ```
+   /bootloader/sys/libsys_minerva.bso
+   ```
+2. 🎮 Launch `Lockpick_RCM.bin` using your preferred payload injector or chainloader.
+3. 💾 Keys will be saved to:
+   - `/switch/prod.keys`
+   - `/switch/title.keys` on your SD card.
+
+> This release also includes the Falcon keygen from [Atmosphère-NX](https://github.com/Atmosphere-NX/Atmosphere).
+
+## 🔑 Mariko-Specific Keys
+
+Mariko consoles (Switch V2 and Switch Lite) contain unique keys and protected keyslots. To extract these keys, you will need to use the `/switch/partialaes.keys` file along with a brute-forcing tool like [PartialAesKeyCrack](https://files.sshnuke.net/PartialAesKeyCrack.zip). The process involves :
+
+1. Open `partialaes.keys` and observe the keyslot data.
+2. Use the following command format:
+   ```
+   PartialAesKeyCrack.exe <num1> <num2> <num3> <num4> --numthreads=[N]
+   ```
+   Replace `[N]` with the number of threads to utilize (not exceeding your CPU's core count).
+
+### 🔍 Keyslots Overview
+
+| Keyslot | Name                         | Notes                                         |
+| ------- | ---------------------------- | --------------------------------------------- |
+| 0-11    | `mariko_aes_class_key_xx`    | Not used by the Switch (set by bootrom)       |
+| 12      | `mariko_kek`                 | Used for master key derivation                |
+| 13      | `mariko_bek`                 | Used for BCT and package1 decryption          |
+| 14      | `secure_boot_key`            | Console unique (for personal records)         |
+| 15      | Secure storage key           | Console unique (not used on retail/dev units) |
+
+**Example:**
 ```
 12
 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444
 ```
-Then take those numbers and open a command prompt window at the location of the exe linked above and type:
-`PartialAesKeyCrack.exe 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444` and if you're on a powerful enough multicore system, add ` --numthreads=[whatever number of threads]`, ideally not your system's maximum if it's, for example, an older laptop with a low-end dual core CPU. On a Ryzen 3900x with 24 threads this generates a lot of heat but finishes in about 45 seconds.
 
-These keys never change so a brute force need only be conducted once.
+To brute force `mariko_kek`, run:
+```
+PartialAesKeyCrack.exe 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444 --numthreads=12
+```
 
-This works due to the security engine immediately flushing writes to keyslots which can be written one 32-bit chunk at a time. See: <https://switchbrew.org/wiki/Switch_System_Flaws#Hardware>
+> 💡 On a high-performance CPU like the Ryzen 3900x, this process takes about 45 seconds using 24 threads.
 
-Building
-=
-Install [devkitARM](https://devkitpro.org/) and run `make`.
+🔗 For more details on the hardware flaw utilized : [Switch System Flaws - Hardware](https://switchbrew.org/wiki/Switch_System_Flaws#Hardware)
 
-Massive Thanks to CTCaer!
-=
-This software is heavily based on [Hekate](https://github.com/CTCaer/hekate). Beyond that, CTCaer was exceptionally helpful in the development of this project, lending loads of advice, expertise, and humor.
+## 🛠️ Building
 
-License
-=
-This project is under the GPLv2 license. The Save processing module is adapted from [hactool](https://github.com/SciresM/hactool) code under ISC.
+1. Install [devkitARM](https://devkitpro.org/).
+2. Run:
+   ```
+   make
+   ```
 
-**Dépôt non officiel**
-=
-Ce dépôt est simplement un clone du dépôt DMCA'd Lockpick_RCM de [shchmue](https://github.com/shchmue), les modifications apportées à ce dépôt utilisent le code source trouvé sur [le serveur Discord de ReSwitched](https://reswitched.github.io/discord/)
+## 🙌 Massive Thanks to CTCaer!
 
----
+This project owes a lot to [Hekate](https://github.com/CTCaer/hekate), and special thanks go to **CTCaer** for his valuable advice, expertise, and humor throughout the development process. 🎉
+
+## 📜 License
+
+Lockpick_RCM is licensed under the **GPLv2**. The save processing module is adapted from [hactool](https://github.com/SciresM/hactool), licensed under ISC.
+
+## ⚠️ Unofficial Repository
+
+This repository is a clone of the DMCA'd Lockpick_RCM by [shchmue](https://github.com/shchmue). The modifications here are based on the source code shared on the [ReSwitched Discord server](https://reswitched.github.io/discord/). 
