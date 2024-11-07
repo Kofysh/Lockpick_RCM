@@ -23,7 +23,7 @@ Lockpick_RCM is a bare-metal Nintendo Switch payload that extracts encryption ke
 Mariko consoles (Switch V2 and Switch Lite) contain unique keys and protected keyslots. To extract these keys, you will need to use the `/switch/partialaes.keys` file along with a brute-forcing tool like [PartialAesKeyCrack](https://files.sshnuke.net/PartialAesKeyCrack.zip). The process involves :
 
 1. Open `partialaes.keys` and observe the keyslot data.
-2. Use the following command format:
+2. Use the following command format :
    ```
    PartialAesKeyCrack.exe <num1> <num2> <num3> <num4> --numthreads=[N]
    ```
@@ -45,7 +45,7 @@ Mariko consoles (Switch V2 and Switch Lite) contain unique keys and protected ke
 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444
 ```
 
-To brute force `mariko_kek`, run:
+To brute force `mariko_kek`, run :
 ```
 PartialAesKeyCrack.exe 11111111111111111111111111111111 22222222222222222222222222222222 33333333333333333333333333333333 44444444444444444444444444444444 --numthreads=12
 ```
@@ -57,12 +57,12 @@ PartialAesKeyCrack.exe 11111111111111111111111111111111 222222222222222222222222
 ## 🛠️ Building
 
 1. Install [devkitARM](https://devkitpro.org/).
-2. Run:
+2. Run :
    ```
    make
    ```
 
-## 🙌 Massive Thanks to CTCaer!
+## 🙌 Massive Thanks to CTCaer !
 
 This project owes a lot to [Hekate](https://github.com/CTCaer/hekate), and special thanks go to **CTCaer** for his valuable advice, expertise, and humor throughout the development process. 🎉
 
