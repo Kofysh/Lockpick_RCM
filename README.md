@@ -7,7 +7,7 @@ Lockpick_RCM is a bare-metal Nintendo Switch payload that extracts encryption ke
 
 ## 🚀 Usage
 
-1. 🗄️ **Recommended** : Place **Minerva** on your SD card for optimal performance, especially when dumping titlekeys. You can get it from the latest [Hekate release](https://github.com/CTCaer/hekate/releases). Place the file at :
+1. 🗄️ **Recommended** : Place **Minerva** on your SD card for optimal performance, especially when dumping titlekeys. You can get it from the latest [Hekate](https://github.com/CTCaer/hekate/releases) release. Place the file at :
    ```
    /bootloader/sys/libsys_minerva.bso
    ```
