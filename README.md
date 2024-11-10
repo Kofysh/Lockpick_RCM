@@ -3,7 +3,7 @@
 
 Lockpick_RCM is a bare-metal Nintendo Switch payload that extracts encryption keys for use in file handling software like **hactool**, **hactoolnet/LibHac**, **ChoiDujour**, etc., all without booting into Horizon OS. 🚀
 
-> ⚠️ **Note:** Due to changes in firmware 7.0.0 and beyond, the Lockpick homebrew can no longer derive the latest keys. However, this limitation doesn't apply in the boot-time environment, allowing Lockpick_RCM to function properly.
+> ⚠️ **Note :** Due to changes in firmware 7.0.0 and beyond, the Lockpick homebrew can no longer derive the latest keys. However, this limitation doesn't apply in the boot-time environment, allowing Lockpick_RCM to function properly.
 
 ## 🚀 Usage
 
