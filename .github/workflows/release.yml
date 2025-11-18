@@ -1,0 +1,92 @@
+name: Auto Build, Tag and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: devkitpro/devkitarm:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install native build tools (gcc/make/zip)
+        run: |
+          apt-get update
+          apt-get install -y build-essential git zip
+
+      - name: Get latest version and compute next tag
+        id: version
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+          git remote remove origin || true
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch --tags
+
+          last_tag=$(git tag --list "1.9.*" --sort=-v:refname | head -n1)
+
+          if [ -z "$last_tag" ]; then
+            version="1.9.15"
+          else
+            major=$(echo "$last_tag" | cut -d. -f1)
+            minor=$(echo "$last_tag" | cut -d. -f2)
+            patch=$(echo "$last_tag" | cut -d. -f3)
+            next_patch=$((patch + 1))
+            version="$major.$minor.$next_patch"
+          fi
+
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Build the project
+        run: make
+
+      - name: Create ZIP package
+        run: |
+          cd output
+          zip -r "../Lockpick_RCM-${{ steps.version.outputs.version }}.zip" .
+          cd ..
+
+      - name: Tag and push
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          version=${{ steps.version.outputs.version }}
+          git tag "$version"
+          git push origin "$version"
+
+      - name: Get latest commit message
+        id: changelog
+        run: |
+          message=$(git log -1 --pretty=%B)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$message" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            Changelog:
+
+            ${{ steps.changelog.outputs.message }}
+          files: |
+            output/Lockpick_RCM.bin
+            Lockpick_RCM-${{ steps.version.outputs.version }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload compiled ZIP as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
+          path: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
