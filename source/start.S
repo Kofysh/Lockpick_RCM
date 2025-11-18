@@ -23,8 +23,8 @@
 .extern memset
 .type memset, %function
 
-.extern _irq_setup
-.type _irq_setup, %function
+.extern loader_main
+.type loader_main, %function
 
 .globl _start
 .type _start, %function
@@ -61,17 +61,13 @@ _reloc_ipl:
 
 _real_start:
 	/* Initially, we place our stack in IRAM but will move it to SDRAM later. */
-	LDR SP, =0x4003FF00
-	LDR R0, =__bss_start
-	EOR R1, R1, R1
-	LDR R2, =__bss_end
-	SUB R2, R2, R0
-	BL memset
-	BL _irq_setup
+	LDR SP, =0x40007000
+	LDR R0, =__ldr_end
+	BL loader_main
 	B .
-
-.globl pivot_stack
-.type pivot_stack, %function
-pivot_stack:
-	MOV SP, R0
-	BX LR
+	.word 0
+	.word 0
+	.word 0
+	.word 0
+	.word 0
+	.word 0
