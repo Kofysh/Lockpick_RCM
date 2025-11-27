@@ -1,0 +1,6 @@
+services:
+  lockpick:
+    build:
+      context: .
+    volumes:
+      - .:/workspace
