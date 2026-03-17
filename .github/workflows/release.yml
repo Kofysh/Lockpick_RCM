@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -28,43 +29,66 @@ jobs:
           apt-get update
           apt-get install -y build-essential git zip
 
-      - name: Get latest version and compute next tag
+      - name: Compute next tag
         id: version
+        shell: bash
         run: |
+          set -euo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --tags --force
 
-          last_tag=$(git tag --list "1.9.*" --sort=-v:refname | head -n1)
-
-          if [ -z "$last_tag" ]; then
-            version="1.9.15"
-          else
-            major=$(echo "$last_tag" | cut -d. -f1)
-            minor=$(echo "$last_tag" | cut -d. -f2)
-            patch=$(echo "$last_tag" | cut -d. -f3)
-            next_patch=$((patch + 1))
-            version="$major.$minor.$next_patch"
+          major="$(sed -n 's/^LPVERSION_MAJOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+          minor="$(sed -n 's/^LPVERSION_MINOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+          if [[ -z "${major}" || -z "${minor}" ]]; then
+            echo "Failed to parse Versions.inc" >&2
+            exit 1
           fi
 
-          echo "version=$version" >> $GITHUB_OUTPUT
+          # If repo already uses v-prefixed tags, keep that style.
+          if git tag --list "v${major}.${minor}.*" | head -n1 >/dev/null; then
+            prefix="v${major}.${minor}."
+          else
+            prefix="${major}.${minor}."
+          fi
+
+          last_tag="$(git tag --list "${prefix}*" --sort=-v:refname | head -n1)"
+          if [[ -z "${last_tag}" ]]; then
+            next_patch="0"
+          else
+            last_patch="$(echo "${last_tag}" | sed -E 's/^v?'"${major//./\\.}"'\\.'"${minor//./\\.}"'\\.([0-9]+)$/\\1/' )"
+            if [[ -z "${last_patch}" || "${last_patch}" == "${last_tag}" ]]; then
+              last_patch="$(echo "${last_tag}" | awk -F. '{print $3}')"
+            fi
+            next_patch="$(( last_patch + 1 ))"
+          fi
+
+          tag="${prefix}${next_patch}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Computed tag: ${tag}"
 
       - name: Build the project
         run: make
 
       - name: Create ZIP package
         run: |
+          version="${{ steps.version.outputs.tag }}"
           cd output
-          zip -r "../Lockpick_RCM-${{ steps.version.outputs.version }}.zip" .
+          zip -r "../Lockpick_RCM-${version}.zip" .
           cd ..
 
-      - name: Tag and push
+      - name: Create and push tag
+        shell: bash
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          version=${{ steps.version.outputs.version }}
-          git tag "$version"
-          git push origin "refs/tags/$version"
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "Tag ${tag} already exists; skipping tag creation."
+          else
+            git tag "${tag}"
+            git push origin "refs/tags/${tag}"
+          fi
 
       - name: Get latest commit message
         id: changelog
@@ -77,20 +101,21 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
           body: |
             Changelog:
 
             ${{ steps.changelog.outputs.message }}
           files: |
             output/Lockpick_RCM.bin
-            Lockpick_RCM-${{ steps.version.outputs.version }}.zip
+            output/Lockpick_RCM_unc.bin
+            Lockpick_RCM-${{ steps.version.outputs.tag }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload compiled ZIP as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
-          path: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
+          name: Lockpick_RCM-${{ steps.version.outputs.tag }}.zip
+          path: Lockpick_RCM-${{ steps.version.outputs.tag }}.zip
