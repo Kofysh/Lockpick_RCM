@@ -89,6 +89,23 @@ jobs:
         run: |
           ls -la output || true
 
+      - name: Tag and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/${version}" >/dev/null; then
+            echo "Tag ${version} already exists."
+          else
+            git tag "${version}"
+            git push origin "${version}"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
