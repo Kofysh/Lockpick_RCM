@@ -69,6 +69,17 @@ volatile nyx_storage_t *nyx_str = (nyx_storage_t *)NYX_STORAGE_ADDR;
 
 static void *coreboot_addr;
 
+static size_t strnlen_local(const char *s, size_t max_len)
+{
+	size_t i = 0;
+	for (; i < max_len; i++)
+	{
+		if (s[i] == '\0')
+			break;
+	}
+	return i;
+}
+
 void reloc_patcher(u32 payload_dst, u32 payload_src, u32 payload_size)
 {
 	memcpy((u8 *)payload_src, (u8 *)IPL_LOAD_ADDR, PATCHED_RELOC_SZ);
@@ -127,7 +138,8 @@ int launch_payload(char *path, bool clear_screen)
 			}
 		}
 
-		if (f_read(&fp, buf, size, NULL))
+		UINT br = 0;
+		if (f_read(&fp, buf, size, &br) || br != size)
 		{
 			f_close(&fp);
 
@@ -150,8 +162,14 @@ int launch_payload(char *path, bool clear_screen)
 
 			// Get coreboot seamless display magic.
 			u32 magic = 0;
-			char *magic_ptr = buf + COREBOOT_VER_OFF;
-			memcpy(&magic, magic_ptr + strlen(magic_ptr) - 4, 4);
+			char *magic_ptr = (char *)buf + COREBOOT_VER_OFF;
+			if (COREBOOT_VER_OFF < size)
+			{
+				size_t max_len = size - COREBOOT_VER_OFF;
+				size_t len = strnlen_local(magic_ptr, max_len);
+				if (len >= 4)
+					memcpy(&magic, magic_ptr + len - 4, 4);
+			}
 			hw_reinit_workaround(true, magic);
 		}
 
@@ -162,6 +180,8 @@ int launch_payload(char *path, bool clear_screen)
 
 		// Launch our payload.
 		(*ext_payload_ptr)();
+
+		// If the payload ever returns, consider it a failure and fall through.
 	}
 
 out:
@@ -221,7 +241,8 @@ void launch_tools()
 
 			while (true)
 			{
-				if (i > max_entries || !filelist[i * 256])
+				// Keep within both the filelist and the allocated menu array.
+				if (i >= max_entries || (i + i_off) >= (max_entries + 2) || !filelist[i * 256])
 					break;
 				ments[i + i_off].type = INI_CHOICE;
 				ments[i + i_off].caption = &filelist[i * 256];
