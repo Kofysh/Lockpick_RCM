@@ -205,8 +205,10 @@ int emummc_storage_init_mmc()
 
 	if (!emu_cfg.sector)
 	{
-		strcpy(emu_cfg.emummc_file_based_path, emu_cfg.path);
-		strcat(emu_cfg.emummc_file_based_path, "/eMMC");
+		if (!emu_cfg.emummc_file_based_path || !emu_cfg.path)
+			goto out;
+		strlcpy_local(emu_cfg.emummc_file_based_path, emu_cfg.path, 0x200);
+		strlcat_local(emu_cfg.emummc_file_based_path, "/eMMC", 0x200);
 
 		if (f_stat(emu_cfg.emummc_file_based_path, &fno))
 		{
@@ -215,7 +217,7 @@ int emummc_storage_init_mmc()
 		}
 		f_chmod(emu_cfg.emummc_file_based_path, AM_ARC, AM_ARC);
 
-		strcat(emu_cfg.emummc_file_based_path, "/00");
+		strlcat_local(emu_cfg.emummc_file_based_path, "/00", 0x200);
 		if (f_stat(emu_cfg.emummc_file_based_path, &fno))
 		{
 			EPRINTF("Failed to open emuMMC rawnand.");
@@ -271,7 +273,9 @@ int emummc_storage_read(u32 sector, u32 num_sectors, void *buf)
 			return 0;
 		}
 		f_lseek(&fp, (u64)sector << 9);
-		if (f_read(&fp, buf, (u64)num_sectors << 9, NULL))
+		UINT br = 0;
+		u32 len = (u64)num_sectors << 9;
+		if (f_read(&fp, buf, len, &br) || br != len)
 		{
 			EPRINTF("Failed to read emuMMC image.");
 			f_close(&fp);
@@ -315,7 +319,9 @@ int emummc_storage_write(u32 sector, u32 num_sectors, void *buf)
 			return 0;
 
 		f_lseek(&fp, (u64)sector << 9);
-		if (f_write(&fp, buf, (u64)num_sectors << 9, NULL))
+		UINT bw = 0;
+		u32 len = (u64)num_sectors << 9;
+		if (f_write(&fp, buf, len, &bw) || bw != len)
 		{
 			f_close(&fp);
 			return 0;
@@ -335,19 +341,21 @@ int emummc_storage_set_mmc_partition(u32 partition)
 		return 1;
 	else
 	{
-		strcpy(emu_cfg.emummc_file_based_path, emu_cfg.path);
-		strcat(emu_cfg.emummc_file_based_path, "/eMMC");
+		if (!emu_cfg.emummc_file_based_path || !emu_cfg.path)
+			return 1;
+		strlcpy_local(emu_cfg.emummc_file_based_path, emu_cfg.path, 0x200);
+		strlcat_local(emu_cfg.emummc_file_based_path, "/eMMC", 0x200);
 
 		switch (partition)
 		{
 		case 0:
-			strcat(emu_cfg.emummc_file_based_path, "/00");
+			strlcat_local(emu_cfg.emummc_file_based_path, "/00", 0x200);
 			break;
 		case 1:
-			strcat(emu_cfg.emummc_file_based_path, "/BOOT0");
+			strlcat_local(emu_cfg.emummc_file_based_path, "/BOOT0", 0x200);
 			break;
 		case 2:
-			strcat(emu_cfg.emummc_file_based_path, "/BOOT1");
+			strlcat_local(emu_cfg.emummc_file_based_path, "/BOOT1", 0x200);
 			break;
 		}
 

@@ -286,11 +286,32 @@ void launch_tools()
 	{
 		if (memcmp("sd:/", file_sec, 4) != 0)
 		{
-			memcpy(dir + strlen(dir), "/", 2);
-			memcpy(dir + strlen(dir), file_sec, strlen(file_sec) + 1);
+			// Safely append "/<filename>" into the fixed-size buffer.
+			size_t dir_len = strnlen_local(dir, 256);
+			size_t sec_len = strnlen_local(file_sec, 256);
+			if (dir_len + 1 + sec_len + 1 <= 256)
+			{
+				dir[dir_len] = '/';
+				memcpy(dir + dir_len + 1, file_sec, sec_len);
+				dir[dir_len + 1 + sec_len] = 0;
+			}
+			else
+			{
+				EPRINTF("Selected path is too long.");
+				goto out;
+			}
 		}
 		else
-			memcpy(dir, file_sec, strlen(file_sec) + 1);
+		{
+			size_t sec_len = strnlen_local(file_sec, 256);
+			if (sec_len + 1 <= 256)
+				memcpy(dir, file_sec, sec_len + 1);
+			else
+			{
+				EPRINTF("Selected path is too long.");
+				goto out;
+			}
+		}
 
 		launch_payload(dir, true);
 		EPRINTF("Failed to launch payload.");
