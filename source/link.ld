@@ -1,7 +1,8 @@
 ENTRY(_start)
 
 SECTIONS {
-	PROVIDE(__ipl_start = LDR_LOAD_ADDR);
+	/* Main payload is linked for IPL_LOAD_ADDR (defined by root Makefile). */
+	PROVIDE(__ipl_start = IPL_LOAD_ADDR);
 	. = __ipl_start;
 	.text : {
 		*(.text._start);
