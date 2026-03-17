@@ -347,15 +347,26 @@ static bool _get_titlekeys_from_save(u32 buf_size, const u8 *save_mac_key, title
 static bool _derive_sd_seed(key_storage_t *keys) {
     FIL fp;
     u32 read_bytes = 0;
-    char *private_path = malloc(200);
-    strcpy(private_path, "sd:/");
-
+    // Build path safely (avoid overflow if emu path is long).
+    const char *suffix = "/Contents/private";
+    const char *base = "sd:/";
+    const char *nintendo = "Nintendo";
+    const char *mid = nintendo;
     if (emu_cfg.nintendo_path && (emu_cfg.enabled || !h_cfg.emummc_force_disable)) {
-        strcat(private_path, emu_cfg.nintendo_path);
-    } else {
-        strcat(private_path, "Nintendo");
+        mid = emu_cfg.nintendo_path;
     }
-    strcat(private_path, "/Contents/private");
+
+    size_t need = strlen(base) + strlen(mid) + strlen(suffix) + 1;
+    char *private_path = malloc(need);
+    if (!private_path) {
+        EPRINTF("Unable to allocate SD seed path. Skipping.");
+        return false;
+    }
+    private_path[0] = 0;
+    strcat(private_path, base);
+    strcat(private_path, mid);
+    strcat(private_path, suffix);
+
     FRESULT fr = f_open(&fp, private_path, FA_READ | FA_OPEN_EXISTING);
     free(private_path);
     if (fr) {
@@ -491,6 +502,13 @@ int save_mariko_partial_keys(u32 start, u32 count, bool append) {
     u32 zeros[SE_KEY_128_SIZE / 4] = {0};
     u8 *data = malloc(4 * SE_KEY_128_SIZE);
     char *text_buffer = calloc(count, 0x100);
+    const u32 text_cap = count * 0x100;
+    if (!data || !text_buffer) {
+        free(data);
+        free(text_buffer);
+        EPRINTF("Out of memory while dumping partial keys.");
+        return 2;
+    }
 
     for (u32 ks = start; ks < start + count; ks++) {
         // Check if key is as expected
@@ -519,17 +537,27 @@ int save_mariko_partial_keys(u32 start, u32 count, bool append) {
             continue;
         }
 
+        // Bound writes to the allocated buffer.
+        if (pos + 4 >= text_cap)
+            break;
         pos += s_printf(&text_buffer[pos], "%d\n", ks);
         for (u32 i = 0; i < 4; i++) {
-            for (u32 j = 0; j < SE_KEY_128_SIZE; j++)
+            for (u32 j = 0; j < SE_KEY_128_SIZE; j++) {
+                if (pos + 2 >= text_cap)
+                    break;
                 pos += s_printf(&text_buffer[pos], "%02x", data[i * SE_KEY_128_SIZE + j]);
+            }
+            if (pos + 1 >= text_cap)
+                break;
             pos += s_printf(&text_buffer[pos], " ");
         }
+        if (pos + 1 >= text_cap)
+            break;
         pos += s_printf(&text_buffer[pos], "\n");
     }
     free(data);
 
-    if (strlen(text_buffer) == 0) {
+    if (pos == 0) {
         EPRINTFARGS("Failed to dump partial keys %d-%d.", start, start + count - 1);
         free(text_buffer);
         return 2;
@@ -556,8 +584,14 @@ int save_mariko_partial_keys(u32 start, u32 count, bool append) {
         return 3;
     }
 
-    f_write(&fp, text_buffer, strlen(text_buffer), NULL);
+    UINT bw = 0;
+    FRESULT fr = f_write(&fp, text_buffer, pos, &bw);
     f_close(&fp);
+    if (fr != FR_OK || bw != pos) {
+        EPRINTF("Unable to write partial keys to SD.");
+        free(text_buffer);
+        return 3;
+    }
 
     gfx_printf("%kWrote partials to %s\n", colors[(color_idx++) % 6], keyfile_path);
 
