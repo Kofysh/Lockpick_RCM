@@ -23,8 +23,8 @@
 .extern memset
 .type memset, %function
 
-.extern loader_main
-.type loader_main, %function
+.extern ipl_main
+.type ipl_main, %function
 
 .globl _start
 .type _start, %function
@@ -62,8 +62,7 @@ _reloc_ipl:
 _real_start:
 	/* Initially, we place our stack in IRAM but will move it to SDRAM later. */
 	LDR SP, =0x40007000
-	LDR R0, =__ldr_end
-	BL loader_main
+	BL ipl_main
 	B .
 	.word 0
 	.word 0
