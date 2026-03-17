@@ -32,6 +32,48 @@
 extern hekate_config h_cfg;
 emummc_cfg_t emu_cfg = { 0 };
 
+static size_t strnlen_local(const char *s, size_t max_len)
+{
+	size_t i = 0;
+	for (; i < max_len; i++)
+	{
+		if (s[i] == '\0')
+			break;
+	}
+	return i;
+}
+
+static void strlcpy_local(char *dst, const char *src, size_t dst_size)
+{
+	if (!dst || dst_size == 0)
+		return;
+	if (!src)
+	{
+		dst[0] = 0;
+		return;
+	}
+	size_t n = strnlen_local(src, dst_size - 1);
+	memcpy(dst, src, n);
+	dst[n] = 0;
+}
+
+static bool strlcat_local(char *dst, const char *src, size_t dst_size)
+{
+	if (!dst || dst_size == 0)
+		return false;
+	size_t dlen = strnlen_local(dst, dst_size);
+	if (dlen >= dst_size)
+		return false;
+	if (!src)
+		return true;
+	size_t space = dst_size - dlen - 1;
+	size_t slen = strnlen_local(src, space);
+	memcpy(dst + dlen, src, slen);
+	dst[dlen + slen] = 0;
+	// true means "fully appended" (no truncation)
+	return src[slen] == '\0';
+}
+
 void emummc_load_cfg()
 {
 	emu_cfg.enabled = 0;
@@ -45,6 +87,9 @@ void emummc_load_cfg()
 		emu_cfg.nintendo_path = (char *)malloc(0x200);
 	if (!emu_cfg.emummc_file_based_path)
 		emu_cfg.emummc_file_based_path = (char *)malloc(0x200);
+
+	if (!emu_cfg.nintendo_path || !emu_cfg.emummc_file_based_path)
+		return;
 
 	emu_cfg.nintendo_path[0] = 0;
 	emu_cfg.emummc_file_based_path[0] = 0;
@@ -70,7 +115,7 @@ void emummc_load_cfg()
 					else if (!strcmp("path", kv->key))
 						emu_cfg.path = kv->val;
 					else if (!strcmp("nintendo_path", kv->key))
-						strcpy(emu_cfg.nintendo_path, kv->val);
+						strlcpy_local(emu_cfg.nintendo_path, kv->val, 0x200);
 				}
 				break;
 			}
@@ -83,19 +128,24 @@ bool emummc_set_path(char *path)
 	FIL fp;
 	bool found = false;
 
-	strcpy(emu_cfg.emummc_file_based_path, path);
-	strcat(emu_cfg.emummc_file_based_path, "/raw_based");
+	if (!emu_cfg.emummc_file_based_path || !emu_cfg.nintendo_path)
+		return false;
+
+	strlcpy_local(emu_cfg.emummc_file_based_path, path, 0x200);
+	strlcat_local(emu_cfg.emummc_file_based_path, "/raw_based", 0x200);
 
 	if (!f_open(&fp, emu_cfg.emummc_file_based_path, FA_READ))
 	{
-		if (!f_read(&fp, &emu_cfg.sector, 4, NULL))
+		UINT br = 0;
+		if (!f_read(&fp, &emu_cfg.sector, 4, &br) && br == 4)
 			if (emu_cfg.sector)
 				found = true;
+		f_close(&fp);
 	}
 	else
 	{
-		strcpy(emu_cfg.emummc_file_based_path, path);
-		strcat(emu_cfg.emummc_file_based_path, "/file_based");
+		strlcpy_local(emu_cfg.emummc_file_based_path, path, 0x200);
+		strlcat_local(emu_cfg.emummc_file_based_path, "/file_based", 0x200);
 
 		if (!f_stat(emu_cfg.emummc_file_based_path, NULL))
 		{
@@ -117,8 +167,8 @@ bool emummc_set_path(char *path)
 			memcpy(&id_from_path, path + path_size - 4, 4);
 		emu_cfg.id = id_from_path;
 
-		strcpy(emu_cfg.nintendo_path, path);
-		strcat(emu_cfg.nintendo_path, "/Nintendo");
+		strlcpy_local(emu_cfg.nintendo_path, path, 0x200);
+		strlcat_local(emu_cfg.nintendo_path, "/Nintendo", 0x200);
 	}
 
 	return found;

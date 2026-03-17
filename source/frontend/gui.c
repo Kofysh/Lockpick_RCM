@@ -33,6 +33,12 @@ int save_fb_to_bmp()
 	u8 *bitmap = malloc(file_size);
 	u32 *fb = malloc(0x384000);
 	u32 *fb_ptr = gfx_ctxt.fb;
+	if (!bitmap || !fb || !fb_ptr)
+	{
+		free(bitmap);
+		free(fb);
+		return 1;
+	}
 
 	// Reconstruct FB for bottom-top, portrait bmp.
 	for (int y = 1279; y > -1; y--)
