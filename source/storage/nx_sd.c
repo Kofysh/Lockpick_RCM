@@ -201,14 +201,8 @@ void *sd_file_read(const char *path, u32 *fsize)
 		*fsize = size;
 
 	void *buf = malloc(size);
-	if (!buf)
-	{
-		f_close(&fp);
-		return NULL;
-	}
 
-	UINT br = 0;
-	if (f_read(&fp, buf, size, &br) != FR_OK || br != size)
+	if (f_read(&fp, buf, size, NULL) != FR_OK)
 	{
 		free(buf);
 		f_close(&fp);
@@ -232,11 +226,8 @@ int sd_save_to_file(void *buf, u32 size, const char *filename)
 		return res;
 	}
 
-	UINT bw = 0;
-	res = f_write(&fp, buf, size, &bw);
+	f_write(&fp, buf, size, NULL);
 	f_close(&fp);
 
-	if (res || bw != size)
-		return res ? (int)res : 1;
 	return 0;
 }

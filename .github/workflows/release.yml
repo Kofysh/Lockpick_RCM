@@ -1,110 +1,75 @@
+ 
 name: Auto Build, Tag and Release
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
+
     container:
       image: devkitpro/devkitarm:latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install build tools
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install native build tools (gcc/make/zip)
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends build-essential git zip ca-certificates
+          apt-get install -y build-essential git zip
 
-      - name: Compute next tag (from Versions.inc + existing tags)
+      - name: Get latest version and compute next tag
         id: version
-        shell: bash
         run: |
-          set -euo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-          # Read base major/minor from Versions.inc
-          major="$(sed -n 's/^LPVERSION_MAJOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
-          minor="$(sed -n 's/^LPVERSION_MINOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
-          if [[ -z "${major}" || -z "${minor}" ]]; then
-            echo "Failed to parse Versions.inc" >&2
-            exit 1
-          fi
-          prefix="${major}.${minor}."
+          git remote remove origin || true
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch --tags
 
-          git fetch --tags --force
-          last_tag="$(git tag --list "${prefix}*" --sort=-v:refname | head -n1)"
-          if [[ -z "${last_tag}" ]]; then
-            next_patch="0"
+          last_tag=$(git tag --list "1.9.*" --sort=-v:refname | head -n1)
+
+          if [ -z "$last_tag" ]; then
+            version="1.9.15"
           else
-            next_patch="$(( $(echo "${last_tag}" | cut -d. -f3) + 1 ))"
+            major=$(echo "$last_tag" | cut -d. -f1)
+            minor=$(echo "$last_tag" | cut -d. -f2)
+            patch=$(echo "$last_tag" | cut -d. -f3)
+            next_patch=$((patch + 1))
+            version="$major.$minor.$next_patch"
           fi
 
-          version="${major}.${minor}.${next_patch}"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Computed version: ${version}"
+          echo "version=$version" >> $GITHUB_OUTPUT
 
-      - name: Bump LPVERSION_BUGFX and push commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="${{ steps.version.outputs.version }}"
-          bugfx="$(echo "${version}" | cut -d. -f3)"
-
-          # Update Versions.inc (only BUGFX)
-          sed -i -E "s/^(LPVERSION_BUGFX :=) *[0-9]+/\\1 ${bugfx}/" Versions.inc
-
-          # Commit only if changed
-          if git diff --quiet -- Versions.inc; then
-            echo "Versions.inc already at BUGFX=${bugfx}"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add Versions.inc
-            git commit -m "Increment LPVERSION_BUGFX to ${bugfx} [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Build
+      - name: Build the project
         run: make
 
       - name: Create ZIP package
         run: |
-          version="${{ steps.version.outputs.version }}"
           cd output
-          zip -r "../Lockpick_RCM-${version}.zip" .
+          zip -r "../Lockpick_RCM-${{ steps.version.outputs.version }}.zip" .
           cd ..
 
-      - name: List build output
-        run: |
-          ls -la output || true
-
       - name: Tag and push
-        shell: bash
         run: |
-          set -euo pipefail
-          version="${{ steps.version.outputs.version }}"
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          version=${{ steps.version.outputs.version }}
+          git tag "$version"
+          git push origin "$version"
 
-          git fetch --tags --force
-          if git rev-parse -q --verify "refs/tags/${version}" >/dev/null; then
-            echo "Tag ${version} already exists."
-          else
-            git tag "${version}"
-            git push origin "${version}"
-          fi
+      - name: Get latest commit message
+        id: changelog
+        run: |
+          message=$(git log -1 --pretty=%B)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$message" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -113,10 +78,16 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           body: |
             Changelog:
-            - ${{ github.event.head_commit.message }}
+
+            ${{ steps.changelog.outputs.message }}
           files: |
             output/Lockpick_RCM.bin
-            output/Lockpick_RCM_unc.bin
-            Lockpick_RCM-*.zip
+            Lockpick_RCM-${{ steps.version.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload compiled ZIP as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
+          path: Lockpick_RCM-${{ steps.version.outputs.version }}.zip

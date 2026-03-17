@@ -69,12 +69,6 @@ _real_start:
 	BL memset
 	BL _irq_setup
 	B .
-	.word 0
-	.word 0
-	.word 0
-	.word 0
-	.word 0
-	.word 0
 
 .globl pivot_stack
 .type pivot_stack, %function

@@ -32,48 +32,6 @@
 extern hekate_config h_cfg;
 emummc_cfg_t emu_cfg = { 0 };
 
-static size_t strnlen_local(const char *s, size_t max_len)
-{
-	size_t i = 0;
-	for (; i < max_len; i++)
-	{
-		if (s[i] == '\0')
-			break;
-	}
-	return i;
-}
-
-static void strlcpy_local(char *dst, const char *src, size_t dst_size)
-{
-	if (!dst || dst_size == 0)
-		return;
-	if (!src)
-	{
-		dst[0] = 0;
-		return;
-	}
-	size_t n = strnlen_local(src, dst_size - 1);
-	memcpy(dst, src, n);
-	dst[n] = 0;
-}
-
-static bool strlcat_local(char *dst, const char *src, size_t dst_size)
-{
-	if (!dst || dst_size == 0)
-		return false;
-	size_t dlen = strnlen_local(dst, dst_size);
-	if (dlen >= dst_size)
-		return false;
-	if (!src)
-		return true;
-	size_t space = dst_size - dlen - 1;
-	size_t slen = strnlen_local(src, space);
-	memcpy(dst + dlen, src, slen);
-	dst[dlen + slen] = 0;
-	// true means "fully appended" (no truncation)
-	return src[slen] == '\0';
-}
-
 void emummc_load_cfg()
 {
 	emu_cfg.enabled = 0;
@@ -87,9 +45,6 @@ void emummc_load_cfg()
 		emu_cfg.nintendo_path = (char *)malloc(0x200);
 	if (!emu_cfg.emummc_file_based_path)
 		emu_cfg.emummc_file_based_path = (char *)malloc(0x200);
-
-	if (!emu_cfg.nintendo_path || !emu_cfg.emummc_file_based_path)
-		return;
 
 	emu_cfg.nintendo_path[0] = 0;
 	emu_cfg.emummc_file_based_path[0] = 0;
@@ -115,7 +70,7 @@ void emummc_load_cfg()
 					else if (!strcmp("path", kv->key))
 						emu_cfg.path = kv->val;
 					else if (!strcmp("nintendo_path", kv->key))
-						strlcpy_local(emu_cfg.nintendo_path, kv->val, 0x200);
+						strcpy(emu_cfg.nintendo_path, kv->val);
 				}
 				break;
 			}
@@ -128,24 +83,19 @@ bool emummc_set_path(char *path)
 	FIL fp;
 	bool found = false;
 
-	if (!emu_cfg.emummc_file_based_path || !emu_cfg.nintendo_path)
-		return false;
-
-	strlcpy_local(emu_cfg.emummc_file_based_path, path, 0x200);
-	strlcat_local(emu_cfg.emummc_file_based_path, "/raw_based", 0x200);
+	strcpy(emu_cfg.emummc_file_based_path, path);
+	strcat(emu_cfg.emummc_file_based_path, "/raw_based");
 
 	if (!f_open(&fp, emu_cfg.emummc_file_based_path, FA_READ))
 	{
-		UINT br = 0;
-		if (!f_read(&fp, &emu_cfg.sector, 4, &br) && br == 4)
+		if (!f_read(&fp, &emu_cfg.sector, 4, NULL))
 			if (emu_cfg.sector)
 				found = true;
-		f_close(&fp);
 	}
 	else
 	{
-		strlcpy_local(emu_cfg.emummc_file_based_path, path, 0x200);
-		strlcat_local(emu_cfg.emummc_file_based_path, "/file_based", 0x200);
+		strcpy(emu_cfg.emummc_file_based_path, path);
+		strcat(emu_cfg.emummc_file_based_path, "/file_based");
 
 		if (!f_stat(emu_cfg.emummc_file_based_path, NULL))
 		{
@@ -167,8 +117,8 @@ bool emummc_set_path(char *path)
 			memcpy(&id_from_path, path + path_size - 4, 4);
 		emu_cfg.id = id_from_path;
 
-		strlcpy_local(emu_cfg.nintendo_path, path, 0x200);
-		strlcat_local(emu_cfg.nintendo_path, "/Nintendo", 0x200);
+		strcpy(emu_cfg.nintendo_path, path);
+		strcat(emu_cfg.nintendo_path, "/Nintendo");
 	}
 
 	return found;
@@ -205,10 +155,8 @@ int emummc_storage_init_mmc()
 
 	if (!emu_cfg.sector)
 	{
-		if (!emu_cfg.emummc_file_based_path || !emu_cfg.path)
-			goto out;
-		strlcpy_local(emu_cfg.emummc_file_based_path, emu_cfg.path, 0x200);
-		strlcat_local(emu_cfg.emummc_file_based_path, "/eMMC", 0x200);
+		strcpy(emu_cfg.emummc_file_based_path, emu_cfg.path);
+		strcat(emu_cfg.emummc_file_based_path, "/eMMC");
 
 		if (f_stat(emu_cfg.emummc_file_based_path, &fno))
 		{
@@ -217,7 +165,7 @@ int emummc_storage_init_mmc()
 		}
 		f_chmod(emu_cfg.emummc_file_based_path, AM_ARC, AM_ARC);
 
-		strlcat_local(emu_cfg.emummc_file_based_path, "/00", 0x200);
+		strcat(emu_cfg.emummc_file_based_path, "/00");
 		if (f_stat(emu_cfg.emummc_file_based_path, &fno))
 		{
 			EPRINTF("Failed to open emuMMC rawnand.");
@@ -273,9 +221,7 @@ int emummc_storage_read(u32 sector, u32 num_sectors, void *buf)
 			return 0;
 		}
 		f_lseek(&fp, (u64)sector << 9);
-		UINT br = 0;
-		u32 len = (u64)num_sectors << 9;
-		if (f_read(&fp, buf, len, &br) || br != len)
+		if (f_read(&fp, buf, (u64)num_sectors << 9, NULL))
 		{
 			EPRINTF("Failed to read emuMMC image.");
 			f_close(&fp);
@@ -319,9 +265,7 @@ int emummc_storage_write(u32 sector, u32 num_sectors, void *buf)
 			return 0;
 
 		f_lseek(&fp, (u64)sector << 9);
-		UINT bw = 0;
-		u32 len = (u64)num_sectors << 9;
-		if (f_write(&fp, buf, len, &bw) || bw != len)
+		if (f_write(&fp, buf, (u64)num_sectors << 9, NULL))
 		{
 			f_close(&fp);
 			return 0;
@@ -341,21 +285,19 @@ int emummc_storage_set_mmc_partition(u32 partition)
 		return 1;
 	else
 	{
-		if (!emu_cfg.emummc_file_based_path || !emu_cfg.path)
-			return 1;
-		strlcpy_local(emu_cfg.emummc_file_based_path, emu_cfg.path, 0x200);
-		strlcat_local(emu_cfg.emummc_file_based_path, "/eMMC", 0x200);
+		strcpy(emu_cfg.emummc_file_based_path, emu_cfg.path);
+		strcat(emu_cfg.emummc_file_based_path, "/eMMC");
 
 		switch (partition)
 		{
 		case 0:
-			strlcat_local(emu_cfg.emummc_file_based_path, "/00", 0x200);
+			strcat(emu_cfg.emummc_file_based_path, "/00");
 			break;
 		case 1:
-			strlcat_local(emu_cfg.emummc_file_based_path, "/BOOT0", 0x200);
+			strcat(emu_cfg.emummc_file_based_path, "/BOOT0");
 			break;
 		case 2:
-			strlcat_local(emu_cfg.emummc_file_based_path, "/BOOT1", 0x200);
+			strcat(emu_cfg.emummc_file_based_path, "/BOOT1");
 			break;
 		}
 
