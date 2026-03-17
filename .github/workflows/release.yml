@@ -1,17 +1,18 @@
-name: Release
+name: Auto Build, Tag and Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     container:
       image: devkitpro/devkitarm:latest
     steps:
@@ -25,12 +26,61 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends build-essential git zip ca-certificates
 
+      - name: Compute next tag (from Versions.inc + existing tags)
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+          # Read base major/minor from Versions.inc
+          major="$(sed -n 's/^LPVERSION_MAJOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+          minor="$(sed -n 's/^LPVERSION_MINOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+          if [[ -z "${major}" || -z "${minor}" ]]; then
+            echo "Failed to parse Versions.inc" >&2
+            exit 1
+          fi
+          prefix="${major}.${minor}."
+
+          git fetch --tags --force
+          last_tag="$(git tag --list "${prefix}*" --sort=-v:refname | head -n1)"
+          if [[ -z "${last_tag}" ]]; then
+            next_patch="0"
+          else
+            next_patch="$(( $(echo "${last_tag}" | cut -d. -f3) + 1 ))"
+          fi
+
+          version="${major}.${minor}.${next_patch}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Computed version: ${version}"
+
+      - name: Bump LPVERSION_BUGFX and push commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          bugfx="$(echo "${version}" | cut -d. -f3)"
+
+          # Update Versions.inc (only BUGFX)
+          sed -i -E "s/^(LPVERSION_BUGFX :=) *[0-9]+/\\1 ${bugfx}/" Versions.inc
+
+          # Commit only if changed
+          if git diff --quiet -- Versions.inc; then
+            echo "Versions.inc already at BUGFX=${bugfx}"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Versions.inc
+            git commit -m "Increment LPVERSION_BUGFX to ${bugfx} [skip ci]"
+            git push origin HEAD:main
+          fi
+
       - name: Build
         run: make
 
       - name: Create ZIP package
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${{ steps.version.outputs.version }}"
           cd output
           zip -r "../Lockpick_RCM-${version}.zip" .
           cd ..
@@ -42,8 +92,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            Changelog:
+            - ${{ github.event.head_commit.message }}
           files: |
             output/Lockpick_RCM.bin
             output/Lockpick_RCM_unc.bin
             Lockpick_RCM-*.zip
-          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
