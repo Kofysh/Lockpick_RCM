@@ -1,0 +1,61 @@
+name: Auto tag from Versions.inc
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Versions.inc"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version tag
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Extract numeric version from Versions.inc
+          major="$(sed -n 's/^LPVERSION_MAJOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+          minor="$(sed -n 's/^LPVERSION_MINOR := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+          bugfx="$(sed -n 's/^LPVERSION_BUGFX := *\([0-9]\+\).*$/\1/p' Versions.inc | head -n1)"
+
+          if [[ -z "${major}" || -z "${minor}" || -z "${bugfx}" ]]; then
+            echo "Failed to parse Versions.inc" >&2
+            exit 1
+          fi
+
+          tag="v${major}.${minor}.${bugfx}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Computed tag: ${tag}"
+
+      - name: Create and push tag (if missing)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+          tag="${{ steps.ver.outputs.tag }}"
+
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "Tag ${tag} already exists. Nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${tag}" -m "Release ${tag}"
+          git push origin "${tag}"
+

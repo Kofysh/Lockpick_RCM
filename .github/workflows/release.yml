@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitarm:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential git zip ca-certificates
+
+      - name: Build
+        run: make
+
+      - name: Create ZIP package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cd output
+          zip -r "../Lockpick_RCM-${version}.zip" .
+          cd ..
+
+      - name: List build output
+        run: |
+          ls -la output || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/Lockpick_RCM.bin
+            output/Lockpick_RCM_unc.bin
+            Lockpick_RCM-*.zip
+          generate_release_notes: true
