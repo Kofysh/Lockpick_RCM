@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,6 +19,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Install native build tools (gcc/make/zip)
         run: |
@@ -26,10 +32,7 @@ jobs:
         id: version
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-          git remote remove origin || true
-          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git fetch --tags
+          git fetch --tags --force
 
           last_tag=$(git tag --list "1.9.*" --sort=-v:refname | head -n1)
 
@@ -61,7 +64,7 @@ jobs:
 
           version=${{ steps.version.outputs.version }}
           git tag "$version"
-          git push origin "$version"
+          git push origin "refs/tags/$version"
 
       - name: Get latest commit message
         id: changelog
