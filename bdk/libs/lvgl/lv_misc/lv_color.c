@@ -70,7 +70,7 @@ lv_color_t lv_color_hsv_to_rgb(uint16_t hue, uint8_t sat, uint8_t val)
     uint32_t v = val * 255 / 100;
     uint32_t p = (256 * v - s * v) / 256;
     uint32_t region = h / (60 * 512);
-    
+
     if(sat == 0)
         return LV_COLOR_MAKE(v, v, v);
 

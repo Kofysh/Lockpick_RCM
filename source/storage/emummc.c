@@ -64,9 +64,9 @@ void emummc_load_cfg()
 					if (!strcmp("enabled", kv->key))
 						emu_cfg.enabled = atoi(kv->val);
 					else if (!strcmp("sector", kv->key))
-						emu_cfg.sector = strtol(kv->val, NULL, 16);
+						emu_cfg.sector = (u64)strtoull(kv->val, NULL, 16);
 					else if (!strcmp("id", kv->key))
-						emu_cfg.id = strtol(kv->val, NULL, 16);
+						emu_cfg.id = (u32)strtoul(kv->val, NULL, 16);
 					else if (!strcmp("path", kv->key))
 						emu_cfg.path = kv->val;
 					else if (!strcmp("nintendo_path", kv->key))
@@ -88,9 +88,17 @@ bool emummc_set_path(char *path)
 
 	if (!f_open(&fp, emu_cfg.emummc_file_based_path, FA_READ))
 	{
-		if (!f_read(&fp, &emu_cfg.sector, 4, NULL))
+		UINT br = 0;
+		u64 sec64 = 0;
+		if (!f_read(&fp, &sec64, sizeof(sec64), &br))
+		{
+			if (br == sizeof(sec64))
+				emu_cfg.sector = sec64;
+			else if (br == 4)
+				emu_cfg.sector = (u64)(u32)sec64; // strict-aliasing fix
 			if (emu_cfg.sector)
 				found = true;
+		}
 	}
 	else
 	{
@@ -197,9 +205,18 @@ int emummc_storage_read(u32 sector, u32 num_sectors, void *buf)
 		return sdmmc_storage_read(&emmc_storage, sector, num_sectors, buf);
 	else if (emu_cfg.sector)
 	{
-		sector += emu_cfg.sector;
-		sector += emummc_raw_get_part_off(emu_cfg.active_part) * 0x2000;
-		return sdmmc_storage_read(&sd_storage, sector, num_sectors, buf);
+		const u64 part_off    = (u64)emummc_raw_get_part_off(emu_cfg.active_part) * 0x2000ULL;
+		const u64 base_sector = (u64)emu_cfg.sector + part_off;
+		const u64 abs_sector  = base_sector + (u64)sector;
+
+		// Safety: avoid reading past the end of the SD card (important for very large cards).
+		if ((u64)abs_sector + (u64)num_sectors > (u64)sd_storage.sec_cnt)
+		{
+			EPRINTF("emuMMC read OOR");
+			return 0;
+		}
+
+		return sdmmc_storage_read(&sd_storage, abs_sector, num_sectors, buf);
 	}
 	else
 	{
@@ -242,9 +259,18 @@ int emummc_storage_write(u32 sector, u32 num_sectors, void *buf)
 		return sdmmc_storage_write(&emmc_storage, sector, num_sectors, buf);
 	else if (emu_cfg.sector)
 	{
-		sector += emu_cfg.sector;
-		sector += emummc_raw_get_part_off(emu_cfg.active_part) * 0x2000;
-		return sdmmc_storage_write(&sd_storage, sector, num_sectors, buf);
+		const u64 part_off    = (u64)emummc_raw_get_part_off(emu_cfg.active_part) * 0x2000ULL;
+		const u64 base_sector = (u64)emu_cfg.sector + part_off;
+		const u64 abs_sector  = base_sector + (u64)sector;
+
+		// Safety: avoid writing past the end of the SD card (important for very large cards).
+		if ((u64)abs_sector + (u64)num_sectors > (u64)sd_storage.sec_cnt)
+		{
+			EPRINTF("emuMMC write OOR");
+			return 0;
+		}
+
+		return sdmmc_storage_write(&sd_storage, abs_sector, num_sectors, buf);
 	}
 	else
 	{
