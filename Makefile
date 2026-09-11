@@ -81,6 +81,9 @@ all: $(OUTPUTDIR)/$(TARGET).bin $(LDRDIR)
 clean: $(TOOLS)
 	@rm -rf $(BUILDDIR)
 	@rm -rf $(OUTPUTDIR)
+	@rm -f  $(KEYGENDIR)/$(KEYGENH)
+	@rm -f  $(LDRDIR)/payload_00.h
+	@rm -f  $(LDRDIR)/payload_01.h
 
 $(LDRDIR): $(OUTPUTDIR)/$(TARGET).bin
 	@$(TOOLSLZ)/lz77 $(OUTPUTDIR)/$(TARGET).bin
