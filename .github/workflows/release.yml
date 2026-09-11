@@ -14,15 +14,21 @@ jobs:
       image: devkitpro/devkitarm:latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Install native build tools
         run: |
           apt-get update
           apt-get install -y build-essential git zip
+
+      - name: Show selected branch
+        run: |
+          echo "Building ref: ${{ github.ref }}"
+          echo "Branch: ${{ github.ref_name }}"
 
       - name: Get latest version and compute next tag
         id: version
@@ -79,6 +85,8 @@ jobs:
 
           version="${{ steps.version.outputs.version }}"
 
+          echo "Creating tag $version from branch ${{ github.ref_name }}"
+
           git tag "$version"
           git push origin "$version"
 
@@ -88,6 +96,9 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
           body: |
+            Branch:
+            ${{ github.ref_name }}
+
             Changelog:
 
             ${{ steps.changelog.outputs.message }}
@@ -100,5 +111,5 @@ jobs:
       - name: Upload compiled ZIP as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
+          name: Lockpick_RCM-${{ steps.version.outputs.version }}-${{ github.ref_name }}
           path: Lockpick_RCM-${{ steps.version.outputs.version }}.zip
