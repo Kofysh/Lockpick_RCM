@@ -1,10 +1,10 @@
- 
-name: Auto Build, Tag and Release
+name: Manual Build, Tag and Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -16,34 +16,39 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install native build tools (gcc/make/zip)
+      - name: Install native build tools
         run: |
           apt-get update
           apt-get install -y build-essential git zip
 
       - name: Get latest version and compute next tag
         id: version
+        shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-          git remote remove origin || true
-          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git fetch --tags
+          git fetch --tags --force
 
-          last_tag=$(git tag --list "1.9.*" --sort=-v:refname | head -n1)
+          last_tag=$(git tag --list "2.0.*" --sort=-v:refname | head -n1)
 
           if [ -z "$last_tag" ]; then
-            version="1.9.15"
-          else
-            major=$(echo "$last_tag" | cut -d. -f1)
-            minor=$(echo "$last_tag" | cut -d. -f2)
-            patch=$(echo "$last_tag" | cut -d. -f3)
-            next_patch=$((patch + 1))
-            version="$major.$minor.$next_patch"
+            last_tag="2.0.1"
           fi
 
-          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Current version: $last_tag"
+
+          major=$(echo "$last_tag" | cut -d. -f1)
+          minor=$(echo "$last_tag" | cut -d. -f2)
+          patch=$(echo "$last_tag" | cut -d. -f3)
+
+          next_patch=$((patch + 1))
+          version="$major.$minor.$next_patch"
+
+          echo "Next version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build the project
         run: make
@@ -54,22 +59,28 @@ jobs:
           zip -r "../Lockpick_RCM-${{ steps.version.outputs.version }}.zip" .
           cd ..
 
-      - name: Tag and push
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          version=${{ steps.version.outputs.version }}
-          git tag "$version"
-          git push origin "$version"
-
       - name: Get latest commit message
         id: changelog
+        shell: bash
         run: |
           message=$(git log -1 --pretty=%B)
-          echo "message<<EOF" >> $GITHUB_OUTPUT
-          echo "$message" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+
+          {
+            echo "message<<EOF"
+            echo "$message"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Tag and push
+        shell: bash
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          version="${{ steps.version.outputs.version }}"
+
+          git tag "$version"
+          git push origin "$version"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
