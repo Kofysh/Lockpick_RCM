@@ -30,30 +30,16 @@ jobs:
           echo "Building ref: ${{ github.ref }}"
           echo "Branch: ${{ github.ref_name }}"
 
-      - name: Get latest version and compute next tag
+      - name: Read release version
         id: version
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-          git fetch --tags --force
-
-          last_tag=$(git tag --list "2.0.*" --sort=-v:refname | head -n1)
-
-          if [ -z "$last_tag" ]; then
-            last_tag="2.0.1"
-          fi
-
-          echo "Current version: $last_tag"
-
-          major=$(echo "$last_tag" | cut -d. -f1)
-          minor=$(echo "$last_tag" | cut -d. -f2)
-          patch=$(echo "$last_tag" | cut -d. -f3)
-
-          next_patch=$((patch + 1))
-          version="$major.$minor.$next_patch"
-
-          echo "Next version: $version"
+          major=$(sed -n 's/^LPVERSION_MAJOR := *\([0-9][0-9]*\).*$/\1/p' Versions.inc)
+          minor=$(sed -n 's/^LPVERSION_MINOR := *\([0-9][0-9]*\).*$/\1/p' Versions.inc)
+          patch=$(sed -n 's/^LPVERSION_BUGFX := *\([0-9][0-9]*\).*$/\1/p' Versions.inc)
+          version="${major}.${minor}.${patch}"
+          test -n "$major" -a -n "$minor" -a -n "$patch"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build the project
@@ -86,7 +72,6 @@ jobs:
           version="${{ steps.version.outputs.version }}"
 
           echo "Creating tag $version from branch ${{ github.ref_name }}"
-
           git tag "$version"
           git push origin "$version"
 
