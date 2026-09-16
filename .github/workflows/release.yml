@@ -38,7 +38,7 @@ jobs:
           major=$(sed -n 's/^LPVERSION_MAJOR := *\([0-9][0-9]*\).*$/\1/p' Versions.inc)
           minor=$(sed -n 's/^LPVERSION_MINOR := *\([0-9][0-9]*\).*$/\1/p' Versions.inc)
           patch=$(sed -n 's/^LPVERSION_BUGFX := *\([0-9][0-9]*\).*$/\1/p' Versions.inc)
-          version="${major}.${minor}.${patch}"
+          version="v${major}.${minor}.${patch}"
           test -n "$major" -a -n "$minor" -a -n "$patch"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
