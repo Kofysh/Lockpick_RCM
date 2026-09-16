@@ -411,7 +411,7 @@ static inline uint8_t lv_color_brightness(lv_color_t color)
 #endif
 #endif
 
-#if LV_COLOR_DEPTH == 32 // Concatenate into one 32-bit set. 
+#if LV_COLOR_DEPTH == 32 // Concatenate into one 32-bit set.
 #define LV_COLOR_HEX(c) ((lv_color_t){.full = (c | 0xFF000000)})
 #else
 #define LV_COLOR_HEX(c) LV_COLOR_MAKE(((uint32_t)((uint32_t)c >> 16) & 0xFF), \
